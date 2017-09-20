@@ -1,6 +1,5 @@
-import pprint
-import wx
 from itertools import izip_longest
+import wx
 
 class Bunch(dict):
     def __init__(self, **kwargs):
@@ -21,154 +20,17 @@ class Bunch(dict):
     def __setstate__(self, state):                                              
         pass
 
-def rce(type, props, *children):
+def createComponent(type, props, *children):
     return Bunch(type=type, children=tuple_or_list(children), props=props)
 
 class Component:
-    
+    def init(self):
+        self.state = None
+        self.next_state = None
+
     def setState(self, new_state):
         # TBD, new API with callbacks
         aboutToChangeState(self, dict(self.state, **new_state))
-
-def app(props):
-    print props
-    return (
-        rce(wx.Frame, {'shown': True, 'title': props['title']},
-            rce(wx.Panel, {'background_color': wx.GREEN},
-                rce(wx.StaticText, {'label': "Hello world", 'pos': (25, 25)}),
-                rce(wx.TextCtrl, {'value': "Hello world\nLorem Ipsum", 'pos': (25, 55)})
-               )
-           )
-    )
-
-import datetime
-
-class HumanClock(Component):
-    def getInitialState(self):
-        return {'time': datetime.datetime.now() }
-
-    def componentDidMount(self):
-        print "HC#componentDidMount"
-        self.timer = wx.Timer()
-        self.timer.Bind(wx.EVT_TIMER, self.onTimer)
-        self.timer.Start(1000)
-    def componentWillUnmount(self):
-        print "HC#componentWillUnmount"
-        self.timer.Destroy()
-
-    def onTimer(self, event):
-        print "HC2#onTimer"
-        self.setState({
-            'time': datetime.datetime.now()
-        })
-    def render(self):
-        print "HC#render %s" % self.state['time']
-        return rce(wx.StaticText, {
-            'label': "Time now: %s" % self.state['time'].strftime('%Y-%m-%d %H:%M:%S'), 
-            'pos': (0,0), 
-            'size': (100, 25)
-        })
-
-class app2(Component):
-    def getInitialState(self):
-        return { 'iter': 1, 'time': 0, 'closed': False }
-    def componentDidMount(self):
-        print "app#componentDidMount"
-        self.timer = wx.Timer()
-        self.timer.Bind(wx.EVT_TIMER, self.onTimer)
-        self.timer.Start(500)
-
-    def componentWillUnmount(self):
-        print "app#componentWillUnmount"
-        
-    def onTimer(self, event):
-        print "app2#onTimer"
-        self.setState({
-            'time': self.state['time'] + 1
-        })
-    def onToggleTitle(self, event):
-        print "app2#onToggleTitle"
-        self.setState({
-            'iter': ( self.state['iter'] + 1 )
-        })
-    def onClose(self, event):
-        print "app2#onClose"
-        self.setState({
-            'closed': True
-        })
-    def render(self):
-        odd = self.state['iter'] % 2
-        if self.state['closed']:
-            return None
-        return (
-            rce(wx.Frame, {'shown': True, 'title': (odd and 'Dupa' or 'Blada'), 'onClose': self.onClose},
-                rce(wx.Panel, {'backgroundColor': (odd and 'blue' or 'green'), 'size': (500, 500)},
-                    (odd and
-                        rce(wx.StaticText, {'label': "Hello world", 'pos': (25,25), 'onClick': self.onToggleTitle})
-                    ),
-                    (not odd and 
-                        rce(wx.Button, { 'label': "Hello world", 'pos': (25,25), 'onClick': self.onToggleTitle })
-                    ),
-                    rce(wx.TextCtrl, { 'value': "Hello world\nLorem Ipsum", 'pos': (25, 50), 'size': (400, 200) }),
-                    rce(wx.StaticText, {'label': 'time %s' % self.state['time'], 'pos': (25,275)}),
-                    rce(HumanClock, {})
-                )
-            )
-        )
-
-def destroy(element):
-    if element is not None:
-        element.Destroy()
-
-def create_element(type, props, context):
-    wx_parent = (context is not None and context.get_wx_parent()) or None
-    r = type(wx_parent)
-    apply_props(r, props)
-    return r
-
-class windowLikeAdapter:
-    @classmethod
-    def create(type, parent, props):
-        r = type(parent)
-
-    @classmethod
-    def set_prop(wx_control, key, value):
-        if   key == 'pos':
-            wx_control.SetPosition(value)
-        elif key == 'size':
-            wx_control.SetSize(value)
-        elif key == 'enabled':
-            wx_control.SetEnabled(value)
-        elif   key == 'shown' or key == 'show':
-            wx_control.Show(value)
-        elif key == 'backgroundColor':
-            wx_control.SetBackgroundColour(value)
-        elif key == 'border':
-            wx_control.SetStyle((wx_control.GetStyle() & ~ wx.BORDER_MASK) | (
-                wx.BORDER_SIMPLE if value == 'simple' else
-                wx.BORDER_DOUBLE if value == 'double' else
-                wx.BORDER_DEFAULT if value == 'default' else wx.BORDER_DEFAULT
-            ))
-
-class wxTopLevelAdapter(windowLikeAdapter):
-    @classmethod
-    def set_prop(wx_control, key, value):
-        if key == 'title':
-            wx_control.SetTitle(value)
-        else:
-            windowLikeAdapter.set_prop(wx_control, key, value)
-
-class wxButtonAdapter(windowLikeAdapter):
-    @classmethod
-    def set_prop(wx_control, key, value):
-        if key == 'onClick':
-            wx_control.Bind(wx.EVT_BUTTON, value)
-        else:
-            windowLikeAdapter.set_prop(wx_control, key, value)
-
-handlers = {}
-handlers['window'] = windowLikeAdapter
-handlers[wx.Window] = windowLikeAdapter
 
 def apply_prop(element, key, value):
     print "setting prop %s %s on %s" % (key, str(value), element)
@@ -219,7 +81,49 @@ def apply_props(element, props):
     for key, value in props.items():
         apply_prop(element, key, value)
 
-current_root = None
+class windowLikeAdapter:
+    @classmethod
+    def create(type, parent, props):
+        r = type(parent)
+
+    @classmethod
+    def set_prop(wx_control, key, value):
+        if   key == 'pos':
+            wx_control.SetPosition(value)
+        elif key == 'size':
+            wx_control.SetSize(value)
+        elif key == 'enabled':
+            wx_control.SetEnabled(value)
+        elif   key == 'shown' or key == 'show':
+            wx_control.Show(value)
+        elif key == 'backgroundColor':
+            wx_control.SetBackgroundColour(value)
+        elif key == 'border':
+            wx_control.SetStyle((wx_control.GetStyle() & ~ wx.BORDER_MASK) | (
+                wx.BORDER_SIMPLE if value == 'simple' else
+                wx.BORDER_DOUBLE if value == 'double' else
+                wx.BORDER_DEFAULT if value == 'default' else wx.BORDER_DEFAULT
+            ))
+
+class wxTopLevelAdapter(windowLikeAdapter):
+    @classmethod
+    def set_prop(wx_control, key, value):
+        if key == 'title':
+            wx_control.SetTitle(value)
+        else:
+            windowLikeAdapter.set_prop(wx_control, key, value)
+
+class wxButtonAdapter(windowLikeAdapter):
+    @classmethod
+    def set_prop(wx_control, key, value):
+        if key == 'onClick':
+            wx_control.Bind(wx.EVT_BUTTON, value)
+        else:
+            windowLikeAdapter.set_prop(wx_control, key, value)
+
+handlers = {}
+handlers['window'] = windowLikeAdapter
+handlers[wx.Window] = windowLikeAdapter
 
 def tuple_or_list(obj):
     return (
@@ -335,27 +239,25 @@ def render_int(vdom_old, vdom_new, context):
 
     return vdom_new
 
+the_app = None
 current_vdom = None
-
-def render(new_vdom):
-    global to_be_updated
-    to_be_updated = []
-    print "render ..."
-    global current_vdom
-    render_int(current_vdom, new_vdom, Bunch(wx_control = None))
-    current_vdom = new_vdom
-    
-pp = pprint.PrettyPrinter(depth=10)
-#pp.pprint(app({}))
-
-a = wx.App()
-render(rce(app2, { 'title': "Hello"}))
 
 def wx_idle(event):
     global to_be_updated
     if len(to_be_updated) > 0:
-        render(current_vdom)
+        _render(current_vdom)
 
-a.Bind(wx.EVT_IDLE, wx_idle)
-a.MainLoop()
+def _render(vdom):
+    global to_be_updated
+    to_be_updated = []
+
+    global current_vdom
+    render_int(current_vdom, vdom, Bunch(wx_control = None))
+    current_vdom = vdom
+
+def render(app, vdom):
+    _render(vdom)
+    the_app = app
+    app.Bind(wx.EVT_IDLE, wx_idle)
  
+
