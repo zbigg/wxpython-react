@@ -1,7 +1,7 @@
 # React wxPython
 
 This is very experimental attempt to check if React approach is portable to
-different environment i.environment
+different programming environment:
 
  - other language *Python*
  - native *desktop*
