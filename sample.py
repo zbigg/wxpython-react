@@ -30,6 +30,7 @@ class HumanClock(Component):
             'size': (100, 25)
         })
 
+
 class app2(Component):
     def getInitialState(self):
         return { 'iter': 1, 'time': 0, 'closed': False }
@@ -62,7 +63,7 @@ class app2(Component):
         if self.state['closed']:
             return None
         return (
-            createComponent(wx.Frame, {'shown': True, 'title': (odd and 'Dupa' or 'Blada'), 'onClose': self.onClose},
+            createComponent(wx.Frame, {'shown': True, 'title': (odd and 'Dupa' or 'Blada'), 'onClose': self.onClose, 'size': (500, 500)},
                 createComponent(wx.Panel, {'backgroundColor': (odd and 'blue' or 'green'), 'size': (500, 500)},
                     (odd and
                         createComponent(wx.StaticText, {'label': "Hello world", 'pos': (25,25), 'onClick': self.onToggleTitle})
